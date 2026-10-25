@@ -1,0 +1,8 @@
+# Build output
+.pio/
+.vscode/
+
+# Real credentials and keys. Copy config/secrets.example.h to config/secrets.h.
+config/secrets.h
+*.pem.local
+__pycache__/

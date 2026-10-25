@@ -1,0 +1,73 @@
+# Offline verification: firmware builds + host unit tests + host integration
+# harness (also under ASan/UBSan). Uses only the placeholder configuration;
+# no Azure credentials, no secrets, no hardware, no uploaded artifacts.
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PLATFORMIO_VERSION: "6.1.19"
+  # Ignore any config/secrets.h (there is none in the repository) and build
+  # with config/secrets.example.h placeholders only.
+  PLATFORMIO_BUILD_FLAGS: "-D VC_FORCE_PLACEHOLDER_SECRETS=1"
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PlatformIO ${{ env.PLATFORMIO_VERSION }}
+        run: pip install "platformio==${PLATFORMIO_VERSION}"
+      - name: No real configuration in the tree
+        run: |
+          test ! -e config/secrets.h
+          git check-ignore -q config/secrets.h
+      - name: Reference vectors and smoke-tool self-test (offline)
+        run: |
+          python -I tools/protocol_vectors.py --check
+          python -I tools/azure_smoke.py self-test
+      - name: Unit tests + integration harness
+        run: pio test -e native
+      - name: Unit tests + integration harness under ASan/UBSan
+        run: pio test -e native_sanitize
+
+  firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [sensor_node, sensor_node_synthetic, gateway]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+      - name: Install PlatformIO ${{ env.PLATFORMIO_VERSION }}
+        run: pip install "platformio==${PLATFORMIO_VERSION}"
+      - name: No real configuration in the tree
+        run: test ! -e config/secrets.h
+      - name: Build ${{ matrix.env }}
+        run: pio run -e ${{ matrix.env }}

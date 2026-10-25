@@ -1,0 +1,11 @@
+{
+  "name": "vehicle_core",
+  "version": "1.0.0",
+  "description": "Hardware-independent protocol, scheduling, alarm, queue and telemetry logic shared by the sensor node and gateway (host-testable).",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "srcDir": "src",
+    "includeDir": "src"
+  }
+}
